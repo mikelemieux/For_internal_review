@@ -12,14 +12,17 @@ landing_gear = [1]; %1 extended | 0 Retracted
 dT = [0];
 throttle_setting = [2.0];
 engines = [2];
-kcas = [226];
-alts  = [3464];
-weight = [17400];
+kcas = [300];
+alts  = [2801];
+weight = [16500:100:17500];
 
 % other inputs
-CG = [583 0 100];
-ground_effect = [0];
+input_cg_value = 0; % 0 = use default CG... 1 = input a CG
+CG = [583 0 100];  %only used if input_cg_value = 1
+
+ground_effect = [0]; %0 if the AC is in free air, 1 if in GE
 max_mach = 0.9;
+geom.propScalar = 0.9;
 
 % declarations
 iteration = 1;
@@ -44,43 +47,21 @@ for ige = 1:numel(ground_effect)
                                     mach = max_mach;
                                 end
 
-                                if  weight(iwt) == 17500
-                                     CG =  [583 -1 95]; %fwd cg - cgmin
-                                elseif  weight(iwt) == 17000
-                                     %CG =  [583 0 100]; %mid cg - cgmin
-                                     CG =  [586 0 100]; %mid cg - cgmin                                 
-                                elseif  weight(iwt) == 16760
-                                     CG =  [586.9 0 97]; %empty forward tank
-                                elseif  weight(iwt) == 16500
-                                     CG =  [587 0 100];
-                                elseif  weight(iwt) == 16000
-                                     CG =  [586 0 100];
-                                elseif  weight(iwt) == 15500
-                                     CG =  [583.5 0 100];
-                                elseif  weight(iwt) == 15000
-                                     CG =  [585 0 100];
-                                elseif  weight(iwt) == 14500
-                                     CG =  [586.5 0 100];
-                                elseif  weight(iwt) == 14000
-                                     CG =  [588 0 100];
-                                elseif  weight(iwt) == 13500
-                                     CG =  [588.5 0 100];
-                                elseif  weight(iwt) == 13000
-                                     CG =  [588 0 100];
-                                else
-                                     CG =  CG;
-                                end
-
-
-                                throttle = -1*ones(1,geom.n_engines);
+                                throttle = -2*ones(1,geom.n_engines);
                                 throttle(1:engines(iFn)) = throttle_setting(ithrottle); % Set operating engine ABs ON, Center engine is critical for thrust
 
-                                state = defineState(geom,'altitude',alts(ia),'throttle', throttle,'CG', CG,'heightAGL',heightAGL,...
-                                    'mach', mach,'dT',dT(idT),'weight',weight(iwt),'gearDown',landing_gear(ilg));
-                            
+                                if input_cg_value == 0
+                                    state = defineState(geom,'altitude',alts(ia),'throttle', throttle,'heightAGL',heightAGL,...
+                                        'mach', mach,'dT',dT(idT),'weight',weight(iwt),'gearDown',landing_gear(ilg));
+                                else            
+                                    state = defineState(geom,'altitude',alts(ia),'throttle', throttle,'CG', CG,'heightAGL',heightAGL,...
+                                        'mach', mach,'dT',dT(idT),'weight',weight(iwt),'gearDown',landing_gear(ilg));
+                                end
+
                                 [output state] = climb_capability (model,geom,state);
                                 
-
+                                output_values (iteration,1) = output;
+                                state_values (iteration,1) = state;
                                 Results.weight (iteration,1) = state.weight;
                                 Results.altitude(iteration,1)= alts(ia);
                                 Results.AGL(iteration,1) = heightAGL;
@@ -111,6 +92,7 @@ for ige = 1:numel(ground_effect)
                                 Results.cd_earth(iteration,1) = output.aero.earth(1);
                                 Results.cd_wind(iteration,1) = output.aero.wind(1);
                                 Results.q(iteration,1) = state.q;
+                                Results.fn_factor(iteration,1) = geom.propScalar;
                                 
                                 %    Results.model(iteration,1) = model.version;
                                 results_table = struct2table(Results);                            
